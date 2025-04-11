@@ -9,7 +9,122 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      calendar_generations: {
+        Row: {
+          artist_style: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          status: string
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          artist_style: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          artist_style?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      calendars: {
+        Row: {
+          created_at: string
+          generation_id: string | null
+          id: string
+          image_url: string
+        }
+        Insert: {
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          image_url: string
+        }
+        Update: {
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendars_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dog_photos: {
+        Row: {
+          created_at: string
+          file_path: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      generation_photos: {
+        Row: {
+          created_at: string
+          generation_id: string | null
+          id: string
+          photo_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          photo_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          photo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_photos_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_photos_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "dog_photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

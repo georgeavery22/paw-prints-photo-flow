@@ -1,10 +1,13 @@
-
 import React, { useState, useRef } from 'react';
 import { Image, Upload, Camera } from 'lucide-react';
 import { toast } from "sonner";
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 
 // Artist style options with iconic examples
 const artistStyles = [
@@ -27,6 +30,9 @@ const PhotoUpload = () => {
   const [uploads, setUploads] = useState<Array<{ file: File | null, preview: string | null }>>([
     { file: null, preview: null }
   ]);
+  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   
   // Update uploads array when dog count changes
   const handleDogCountChange = (value: string) => {
@@ -50,7 +56,14 @@ const PhotoUpload = () => {
     setArtistStyle(value);
   };
   
-  const handleCreateCalendar = () => {
+  const handleCreateCalendar = async () => {
+    // Check if user is logged in
+    if (!user) {
+      toast.error('Please sign in to create a calendar');
+      navigate('/account');
+      return;
+    }
+    
     // Check if all uploads have files
     const allUploaded = uploads.every(upload => upload.file !== null);
     
@@ -65,8 +78,99 @@ const PhotoUpload = () => {
       return;
     }
     
-    toast.success("Creating your calendar...");
-    // Here you would implement the logic to create the calendar
+    try {
+      setSaving(true);
+      
+      // 1. Create a new calendar generation
+      const { data: generationData, error: generationError } = await supabase
+        .from('calendar_generations')
+        .insert({
+          user_id: user.id,
+          title: `${artistStyle} Dog Calendar`,
+          artist_style: artistStyle,
+          status: 'processing'
+        })
+        .select('id')
+        .single();
+      
+      if (generationError) throw generationError;
+      
+      const generationId = generationData.id;
+      
+      // 2. Upload each photo to storage and save to database
+      const photoPromises = uploads.map(async (upload, index) => {
+        if (!upload.file) return null;
+        
+        // Create a unique file path for the dog photo
+        const fileExt = upload.file.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        
+        // Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from('dog_photos')
+          .upload(filePath, upload.file);
+        
+        if (uploadError) throw uploadError;
+        
+        // Save to database
+        const { data: photoData, error: photoError } = await supabase
+          .from('dog_photos')
+          .insert({
+            user_id: user.id,
+            file_path: filePath
+          })
+          .select('id')
+          .single();
+        
+        if (photoError) throw photoError;
+        
+        // Link photo to generation
+        const { error: linkError } = await supabase
+          .from('generation_photos')
+          .insert({
+            generation_id: generationId,
+            photo_id: photoData.id
+          });
+        
+        if (linkError) throw linkError;
+        
+        return photoData.id;
+      });
+      
+      await Promise.all(photoPromises);
+      
+      // 3. In a real application, you would trigger an AI generation process
+      // For now, we'll just simulate it by updating the status
+      
+      // Simulate processing time
+      setTimeout(async () => {
+        // Update generation status to completed
+        await supabase
+          .from('calendar_generations')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', generationId);
+        
+        // For demonstration, we'll add a mock calendar result
+        await supabase
+          .from('calendars')
+          .insert({
+            generation_id: generationId,
+            image_url: 'https://via.placeholder.com/800x600?text=Dog+Calendar'
+          });
+      }, 3000);
+      
+      toast.success("Your calendar is being created! Check My Generations to see the result.");
+      navigate('/my-generations');
+    } catch (error: any) {
+      toast.error(error.message || 'An error occurred while creating your calendar');
+      console.error('Calendar creation error:', error);
+    } finally {
+      setSaving(false);
+    }
   };
   
   // Render a single upload box
@@ -235,13 +339,28 @@ const PhotoUpload = () => {
         {uploads.map((_, index) => renderUploadBox(index))}
       </div>
       
+      {/* Sign in prompt if not logged in */}
+      {!user && (
+        <div className="bg-pawprints-beige/20 p-4 rounded-lg text-center max-w-xl mx-auto">
+          <p className="text-pawprints-darktext mb-2">Sign in to save your creations</p>
+          <Button 
+            variant="outline" 
+            className="text-pawprints-terracotta" 
+            onClick={() => navigate('/account')}
+          >
+            Sign In / Sign Up
+          </Button>
+        </div>
+      )}
+      
       {/* Create Calendar Button */}
       <div className="flex justify-center mt-8">
         <Button 
           onClick={handleCreateCalendar}
           className="bg-pawprints-terracotta hover:bg-pawprints-terracotta/90 text-white py-3 px-8 rounded-full text-lg font-medium"
+          disabled={saving}
         >
-          Create My Calendar
+          {saving ? 'Creating...' : 'Create My Calendar'}
         </Button>
       </div>
     </div>
