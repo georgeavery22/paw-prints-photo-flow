@@ -6,18 +6,19 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-// Artist style options
+// Artist style options with iconic examples
 const artistStyles = [
-  "Impressionist",
-  "Cubist",
-  "Pop Art",
-  "Watercolor",
-  "Renaissance",
-  "Modern",
-  "Minimalist",
-  "Abstract",
-  "Surrealist",
-  "Cartoon"
+  { name: "Impressionist", icon: "🌊" }, // Monet's water lilies
+  { name: "Cubist", icon: "📐" }, // Picasso's geometric figures
+  { name: "Pop Art", icon: "🎨" }, // Warhol's bright colors
+  { name: "Watercolor", icon: "💧" }, // Turner's soft edges
+  { name: "Renaissance", icon: "🏛️" }, // Da Vinci's classical style
+  { name: "Modern", icon: "🔲" }, // Mondrian's blocks
+  { name: "Minimalist", icon: "⬜" }, // Malevich's simplicity
+  { name: "Abstract", icon: "🌀" }, // Kandinsky's shapes
+  { name: "Surrealist", icon: "🌙" }, // Dali's dreamscapes
+  { name: "Cartoon", icon: "🦸" }, // Comic book style
+  { name: "Van Gogh", icon: "🌻" }, // Starry Night/Sunflowers
 ];
 
 const PhotoUpload = () => {
@@ -217,8 +218,11 @@ const PhotoUpload = () => {
             </SelectTrigger>
             <SelectContent>
               {artistStyles.map((style) => (
-                <SelectItem key={style} value={style}>
-                  {style}
+                <SelectItem key={style.name} value={style.name}>
+                  <div className="flex items-center gap-2">
+                    <span>{style.icon}</span>
+                    <span>{style.name}</span>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
