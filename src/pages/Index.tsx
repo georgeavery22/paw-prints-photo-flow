@@ -2,15 +2,51 @@
 import React from 'react';
 import NavBar from '@/components/NavBar';
 import PhotoUpload from '@/components/PhotoUpload';
-import { Calendar, Heart } from 'lucide-react';
+import { Calendar, Heart, PawPrint } from 'lucide-react';
 
 const Index = () => {
   return (
     <div className="min-h-screen relative overflow-hidden">
       <NavBar />
       
+      {/* Decorative paw prints background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Top right paw prints */}
+        <div className="absolute top-24 right-10 transform rotate-12">
+          <PawPrint size={38} className="text-pawprints-terracotta/10" />
+        </div>
+        <div className="absolute top-40 right-32 transform rotate-15">
+          <PawPrint size={28} className="text-pawprints-terracotta/10" />
+        </div>
+        <div className="absolute top-60 right-24 transform -rotate-12">
+          <PawPrint size={32} className="text-pawprints-terracotta/10" />
+        </div>
+        
+        {/* Top left paw prints */}
+        <div className="absolute top-36 left-12 transform rotate-45">
+          <PawPrint size={42} className="text-pawprints-terracotta/10" />
+        </div>
+        <div className="absolute top-24 left-40 transform rotate-15">
+          <PawPrint size={24} className="text-pawprints-terracotta/10" />
+        </div>
+        
+        {/* Bottom paw prints */}
+        <div className="absolute bottom-40 left-1/4 transform -rotate-12">
+          <PawPrint size={32} className="text-pawprints-terracotta/10" />
+        </div>
+        <div className="absolute bottom-60 right-1/3 transform rotate-45">
+          <PawPrint size={36} className="text-pawprints-terracotta/10" />
+        </div>
+        <div className="absolute bottom-32 right-12 transform -rotate-20">
+          <PawPrint size={30} className="text-pawprints-terracotta/10" />
+        </div>
+        <div className="absolute bottom-24 left-20 transform rotate-30">
+          <PawPrint size={34} className="text-pawprints-terracotta/10" />
+        </div>
+      </div>
+      
       {/* Hero Section */}
-      <main className="pt-32 pb-20 px-4">
+      <main className="pt-32 pb-20 px-4 relative z-10">
         <div className="container mx-auto">
           <div className="max-w-3xl mx-auto text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-medium mb-6 text-pawprints-darktext leading-tight">
@@ -31,7 +67,7 @@ const Index = () => {
       </main>
       
       {/* Features */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-white relative z-10">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl font-medium text-center mb-12">Why choose Paw Prints?</h2>
           
@@ -72,7 +108,7 @@ const Index = () => {
       </section>
       
       {/* Footer */}
-      <footer className="py-8 bg-pawprints-beige/20">
+      <footer className="py-8 bg-pawprints-beige/20 relative z-10">
         <div className="container mx-auto px-4 text-center">
           <div className="flex justify-center items-center gap-2 mb-4">
             <img 
@@ -87,10 +123,6 @@ const Index = () => {
           </p>
         </div>
       </footer>
-      
-      {/* Decorative elements */}
-      <div className="absolute top-40 right-10 w-32 h-32 bg-pawprints-terracotta/10 rounded-full -z-10"></div>
-      <div className="absolute bottom-40 left-10 w-48 h-48 bg-pawprints-blue/10 rounded-full -z-10"></div>
     </div>
   );
 };

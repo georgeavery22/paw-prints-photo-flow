@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Image, Upload, Camera } from 'lucide-react';
 import { toast } from "sonner";
@@ -188,26 +189,10 @@ const PhotoUpload = () => {
   
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Artist Style Dropdown */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-pawprints-darktext">Artist Style</label>
-          <Select value={artistStyle} onValueChange={handleArtistStyleChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select an artist style" />
-            </SelectTrigger>
-            <SelectContent>
-              {artistStyles.map((style) => (
-                <SelectItem key={style} value={style}>
-                  {style}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
+      {/* Stack dropdowns vertically with Number of Dogs on top */}
+      <div className="space-y-4 max-w-xl mx-auto">
         {/* Number of Dogs Dropdown */}
-        <div className="space-y-2">
+        <div className="space-y-2 w-full">
           <label className="text-sm font-medium text-pawprints-darktext">Number of Dogs</label>
           <Select value={dogCount} onValueChange={handleDogCountChange}>
             <SelectTrigger className="w-full">
@@ -217,6 +202,23 @@ const PhotoUpload = () => {
               {[1, 2, 3, 4, 5].map((num) => (
                 <SelectItem key={num} value={num.toString()}>
                   {num} {num === 1 ? 'Dog' : 'Dogs'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        {/* Artist Style Dropdown */}
+        <div className="space-y-2 w-full">
+          <label className="text-sm font-medium text-pawprints-darktext">Artist Style</label>
+          <Select value={artistStyle} onValueChange={handleArtistStyleChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select an artist style" />
+            </SelectTrigger>
+            <SelectContent>
+              {artistStyles.map((style) => (
+                <SelectItem key={style} value={style}>
+                  {style}
                 </SelectItem>
               ))}
             </SelectContent>
