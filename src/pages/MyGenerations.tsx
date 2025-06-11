@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type Generation = {
   id: string;
@@ -24,6 +29,7 @@ const MyGenerations = () => {
   const { user, loading: authLoading } = useAuth();
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,6 +78,10 @@ const MyGenerations = () => {
       }
     }
   }, [user, authLoading]);
+
+  const handleImageClick = (imageUrl: string, title: string) => {
+    setSelectedImage({ url: imageUrl, title });
+  };
 
   if (authLoading) {
     return (
@@ -156,7 +166,8 @@ const MyGenerations = () => {
                   <img 
                     src={generation.calendar.image_url} 
                     alt={generation.title} 
-                    className="w-full h-48 object-cover"
+                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => handleImageClick(generation.calendar!.image_url, generation.title)}
                   />
                 ) : (
                   <div className="w-full h-48 bg-pawprints-beige/20 flex items-center justify-center">
@@ -193,6 +204,23 @@ const MyGenerations = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle>{selectedImage?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {selectedImage && (
+              <img 
+                src={selectedImage.url} 
+                alt={selectedImage.title}
+                className="w-full h-auto rounded-lg"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
