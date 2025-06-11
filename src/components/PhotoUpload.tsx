@@ -78,6 +78,8 @@ const PhotoUpload = () => {
       return;
     }
     
+    let generationId: string | null = null;
+    
     try {
       setSaving(true);
       
@@ -95,7 +97,7 @@ const PhotoUpload = () => {
       
       if (generationError) throw generationError;
       
-      const generationId = generationData.id;
+      generationId = generationData.id;
       
       // 2. Upload each photo to storage and save to database
       const photoUrls = [];
@@ -172,13 +174,13 @@ const PhotoUpload = () => {
       console.error('Calendar creation error:', error);
       
       // Update generation status to failed if it was created
-      if (generationData?.id) {
+      if (generationId) {
         await supabase
           .from('calendar_generations')
           .update({
             status: 'failed'
           })
-          .eq('id', generationData.id);
+          .eq('id', generationId);
       }
       
       toast.error(error.message || 'An error occurred while creating your calendar');
