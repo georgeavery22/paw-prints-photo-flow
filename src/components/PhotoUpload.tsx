@@ -98,8 +98,11 @@ const PhotoUpload = () => {
       const generationId = generationData.id;
       
       // 2. Upload each photo to storage and save to database
-      const photoPromises = uploads.map(async (upload, index) => {
-        if (!upload.file) return null;
+      const photoUrls = [];
+      
+      for (let index = 0; index < uploads.length; index++) {
+        const upload = uploads[index];
+        if (!upload.file) continue;
         
         // Create a unique file path for the dog photo
         const fileExt = upload.file.name.split('.').pop();
@@ -112,6 +115,13 @@ const PhotoUpload = () => {
           .upload(filePath, upload.file);
         
         if (uploadError) throw uploadError;
+        
+        // Get public URL for the uploaded photo
+        const { data: urlData } = supabase.storage
+          .from('dog_photos')
+          .getPublicUrl(filePath);
+        
+        photoUrls.push(urlData.publicUrl);
         
         // Save to database
         const { data: photoData, error: photoError } = await supabase
@@ -134,40 +144,44 @@ const PhotoUpload = () => {
           });
         
         if (linkError) throw linkError;
-        
-        return photoData.id;
-      });
+      }
       
-      await Promise.all(photoPromises);
+      // 3. Call the AI processing edge function
+      console.log('Calling AI processing function with:', { generationId, photoUrls, artistStyle });
       
-      // 3. In a real application, you would trigger an AI generation process
-      // For now, we'll just simulate it by updating the status
+      const { data: processResult, error: processError } = await supabase.functions
+        .invoke('process-calendar', {
+          body: {
+            generationId,
+            photoUrls,
+            artistStyle
+          }
+        });
       
-      // Simulate processing time
-      setTimeout(async () => {
-        // Update generation status to completed
-        await supabase
-          .from('calendar_generations')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', generationId);
-        
-        // For demonstration, we'll add a mock calendar result
-        await supabase
-          .from('calendars')
-          .insert({
-            generation_id: generationId,
-            image_url: 'https://via.placeholder.com/800x600?text=Dog+Calendar'
-          });
-      }, 3000);
+      if (processError) {
+        console.error('AI processing error:', processError);
+        throw processError;
+      }
+      
+      console.log('AI processing result:', processResult);
       
       toast.success("Your calendar is being created! Check My Generations to see the result.");
       navigate('/my-generations');
+      
     } catch (error: any) {
-      toast.error(error.message || 'An error occurred while creating your calendar');
       console.error('Calendar creation error:', error);
+      
+      // Update generation status to failed if it was created
+      if (generationData?.id) {
+        await supabase
+          .from('calendar_generations')
+          .update({
+            status: 'failed'
+          })
+          .eq('id', generationData.id);
+      }
+      
+      toast.error(error.message || 'An error occurred while creating your calendar');
     } finally {
       setSaving(false);
     }
@@ -360,7 +374,7 @@ const PhotoUpload = () => {
           className="bg-pawprints-terracotta hover:bg-pawprints-terracotta/90 text-white py-3 px-8 rounded-full text-lg font-medium"
           disabled={saving}
         >
-          {saving ? 'Creating...' : 'Create My Calendar'}
+          {saving ? 'Creating AI Calendar...' : 'Create My Calendar'}
         </Button>
       </div>
     </div>
