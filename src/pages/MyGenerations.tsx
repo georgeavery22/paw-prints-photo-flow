@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -206,16 +207,16 @@ const MyGenerations = () => {
       </div>
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-3xl max-h-[80vh] p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-2">
             <DialogTitle>{selectedImage?.title}</DialogTitle>
           </DialogHeader>
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-6 overflow-hidden">
             {selectedImage && (
               <img 
                 src={selectedImage.url} 
                 alt={selectedImage.title}
-                className="w-full h-auto rounded-lg"
+                className="w-full max-h-[60vh] object-contain rounded-lg"
               />
             )}
           </div>
