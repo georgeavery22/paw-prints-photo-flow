@@ -1,9 +1,8 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { calendarPrompts } from '../process-calendar/calendar-prompts.ts';
-import { multiDogCalendarPrompts } from '../process-calendar/multi-dog-prompts.ts';
+import { calendarPrompts } from './calendar-prompts.ts';
+import { multiDogCalendarPrompts } from './multi-dog-prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
