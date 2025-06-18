@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
@@ -52,14 +53,17 @@ serve(async (req) => {
     
     const { dog_descriptions, artist_style, title, user_id } = generationData;
     
+    // Ensure dog_descriptions is an array
+    const dogDescriptionsArray = Array.isArray(dog_descriptions) ? dog_descriptions : [dog_descriptions];
+    
     // Determine if multiple dogs and select appropriate prompts
-    const isMultipleDogs = dog_descriptions && dog_descriptions.length > 1;
+    const isMultipleDogs = dogDescriptionsArray.length > 1;
     const promptsToUse = isMultipleDogs ? multiDogCalendarPrompts : calendarPrompts;
     
     // Create the scene prompt
     const scenePrompt = promptsToUse[month - 1]
       .replace('[Artist]', artist_style)
-      .replace('[dog description]', dog_descriptions.join(' and '))
+      .replace('[dog description]', dogDescriptionsArray.join(' and '))
       .replace('[artist description]', artistDescriptions[artist_style] || 'artistic style with expressive brushwork and rich colors');
     
     console.log(`DALL-E prompt for month ${month}:`, scenePrompt);
@@ -80,11 +84,27 @@ serve(async (req) => {
       }),
     });
 
+    if (!dalleResponse.ok) {
+      const errorText = await dalleResponse.text();
+      console.error('DALL-E API error:', errorText);
+      throw new Error(`DALL-E API error: ${dalleResponse.status} ${errorText}`);
+    }
+
     const dalleData = await dalleResponse.json();
+    
+    if (!dalleData.data || !dalleData.data[0] || !dalleData.data[0].url) {
+      console.error('Invalid DALL-E response:', dalleData);
+      throw new Error('Invalid response from DALL-E API');
+    }
+    
     const generatedImageUrl = dalleData.data[0].url;
     
     // Download and store the image
     const imageResponse = await fetch(generatedImageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to download image: ${imageResponse.status}`);
+    }
+    
     const imageBlob = await imageResponse.blob();
     const imageBuffer = await imageBlob.arrayBuffer();
     

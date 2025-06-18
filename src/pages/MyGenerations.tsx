@@ -4,6 +4,7 @@ import NavBar from '@/components/NavBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import {
@@ -20,11 +21,17 @@ type Generation = {
   status: string;
   created_at: string;
   completed_at: string | null;
-  calendar?: {
+  calendars: Array<{
     id: string;
     image_url: string;
-  } | null;
+    month: number;
+  }>;
 };
+
+const monthNames = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 const MyGenerations = () => {
   const { user, loading: authLoading } = useAuth();
@@ -49,7 +56,8 @@ const MyGenerations = () => {
             completed_at,
             calendars (
               id,
-              image_url
+              image_url,
+              month
             )
           `)
           .eq('user_id', user.id)
@@ -57,13 +65,7 @@ const MyGenerations = () => {
         
         if (error) throw error;
         
-        // Process data to match our expected type
-        const processedData = data.map((gen: any) => ({
-          ...gen,
-          calendar: gen.calendars && gen.calendars.length > 0 ? gen.calendars[0] : null
-        }));
-        
-        setGenerations(processedData);
+        setGenerations(data || []);
       } catch (error) {
         console.error('Error fetching generations:', error);
       } finally {
@@ -74,6 +76,37 @@ const MyGenerations = () => {
     if (!authLoading) {
       if (user) {
         fetchGenerations();
+        
+        // Set up real-time updates
+        const channel = supabase
+          .channel('my-generations-updates')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'calendars'
+            },
+            () => {
+              fetchGenerations();
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'calendar_generations'
+            },
+            () => {
+              fetchGenerations();
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
       } else {
         setLoading(false);
       }
@@ -82,6 +115,23 @@ const MyGenerations = () => {
 
   const handleImageClick = (imageUrl: string, title: string) => {
     setSelectedImage({ url: imageUrl, title });
+  };
+
+  const getProgressPercentage = (calendars: Generation['calendars']) => {
+    return Math.round((calendars.length / 12) * 100);
+  };
+
+  const getStatusDisplay = (generation: Generation) => {
+    switch (generation.status) {
+      case 'completed':
+        return { text: 'Completed', color: 'bg-green-100 text-green-700' };
+      case 'processing':
+        return { text: `Processing (${generation.calendars.length}/12)`, color: 'bg-yellow-100 text-yellow-700' };
+      case 'awaiting_purchase':
+        return { text: 'Preview Ready', color: 'bg-blue-100 text-blue-700' };
+      default:
+        return { text: generation.status, color: 'bg-gray-100 text-gray-700' };
+    }
   };
 
   if (authLoading) {
@@ -161,47 +211,79 @@ const MyGenerations = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {generations.map((generation) => (
-              <div key={generation.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                {generation.calendar ? (
-                  <img 
-                    src={generation.calendar.image_url} 
-                    alt={generation.title} 
-                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => handleImageClick(generation.calendar!.image_url, generation.title)}
-                  />
-                ) : (
-                  <div className="w-full h-48 bg-pawprints-beige/20 flex items-center justify-center">
-                    {generation.status === 'processing' ? (
-                      <div className="text-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-pawprints-terracotta mx-auto mb-2" />
-                        <p className="text-pawprints-darktext/70">Processing...</p>
+            {generations.map((generation) => {
+              const statusDisplay = getStatusDisplay(generation);
+              const firstCalendar = generation.calendars.find(cal => cal.month === 1);
+              
+              return (
+                <div key={generation.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                  {firstCalendar ? (
+                    <img 
+                      src={firstCalendar.image_url} 
+                      alt={generation.title} 
+                      className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => handleImageClick(firstCalendar.image_url, generation.title)}
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-pawprints-beige/20 flex items-center justify-center">
+                      {generation.status === 'processing' ? (
+                        <div className="text-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-pawprints-terracotta mx-auto mb-2" />
+                          <p className="text-pawprints-darktext/70">Processing...</p>
+                        </div>
+                      ) : (
+                        <p className="text-pawprints-darktext/70">Preview not available</p>
+                      )}
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="font-medium text-lg mb-1">{generation.title}</h3>
+                    <p className="text-sm text-pawprints-darktext/70 mb-2">
+                      Style: {generation.artist_style}
+                    </p>
+                    
+                    {generation.status === 'processing' && (
+                      <div className="mb-3 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progress</span>
+                          <span>{getProgressPercentage(generation.calendars)}%</span>
+                        </div>
+                        <Progress 
+                          value={getProgressPercentage(generation.calendars)} 
+                          className="h-2"
+                        />
+                        <p className="text-xs text-pawprints-darktext/70">
+                          {generation.calendars.length} of 12 months completed
+                        </p>
+                        {generation.calendars.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {generation.calendars
+                              .sort((a, b) => a.month - b.month)
+                              .map((calendar) => (
+                                <span 
+                                  key={calendar.month}
+                                  className="px-1 py-0.5 bg-green-100 text-green-700 text-xs rounded"
+                                >
+                                  {monthNames[calendar.month - 1].slice(0, 3)}
+                                </span>
+                              ))}
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-pawprints-darktext/70">Preview not available</p>
                     )}
-                  </div>
-                )}
-                <div className="p-4">
-                  <h3 className="font-medium text-lg mb-1">{generation.title}</h3>
-                  <p className="text-sm text-pawprints-darktext/70 mb-2">
-                    Style: {generation.artist_style}
-                  </p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-pawprints-darktext/50">
-                      {new Date(generation.created_at).toLocaleDateString()}
-                    </span>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      generation.status === 'completed' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {generation.status === 'completed' ? 'Completed' : 'Processing'}
-                    </span>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-pawprints-darktext/50">
+                        {new Date(generation.created_at).toLocaleDateString()}
+                      </span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${statusDisplay.color}`}>
+                        {statusDisplay.text}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
