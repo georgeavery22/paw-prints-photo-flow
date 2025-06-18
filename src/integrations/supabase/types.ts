@@ -14,6 +14,7 @@ export type Database = {
           artist_style: string
           completed_at: string | null
           created_at: string
+          dog_descriptions: string[] | null
           id: string
           status: string
           title: string
@@ -23,6 +24,7 @@ export type Database = {
           artist_style: string
           completed_at?: string | null
           created_at?: string
+          dog_descriptions?: string[] | null
           id?: string
           status?: string
           title: string
@@ -32,6 +34,7 @@ export type Database = {
           artist_style?: string
           completed_at?: string | null
           created_at?: string
+          dog_descriptions?: string[] | null
           id?: string
           status?: string
           title?: string
@@ -45,18 +48,21 @@ export type Database = {
           generation_id: string | null
           id: string
           image_url: string
+          month: number | null
         }
         Insert: {
           created_at?: string
           generation_id?: string | null
           id?: string
           image_url: string
+          month?: number | null
         }
         Update: {
           created_at?: string
           generation_id?: string | null
           id?: string
           image_url?: string
+          month?: number | null
         }
         Relationships: [
           {
