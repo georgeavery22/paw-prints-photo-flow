@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Image, Upload, Camera } from 'lucide-react';
 import { toast } from "sonner";
@@ -148,7 +149,7 @@ const PhotoUpload = () => {
         if (linkError) throw linkError;
       }
       
-      // 3. Call the AI processing edge function
+      // 3. Call the AI processing edge function to generate first image only
       console.log('Calling AI processing function with:', { generationId, photoUrls, artistStyle });
       
       const { data: processResult, error: processError } = await supabase.functions
@@ -156,7 +157,8 @@ const PhotoUpload = () => {
           body: {
             generationId,
             photoUrls,
-            artistStyle
+            artistStyle,
+            generateAll: false // Only generate first image
           }
         });
       
@@ -167,8 +169,8 @@ const PhotoUpload = () => {
       
       console.log('AI processing result:', processResult);
       
-      toast.success("Your calendar is being created! Check My Generations to see the result.");
-      navigate('/my-generations');
+      toast.success("Your calendar preview is ready! Check the Shop to purchase the full calendar.");
+      navigate('/shop');
       
     } catch (error: any) {
       console.error('Calendar creation error:', error);
@@ -376,7 +378,7 @@ const PhotoUpload = () => {
           className="bg-pawprints-terracotta hover:bg-pawprints-terracotta/90 text-white py-3 px-8 rounded-full text-lg font-medium"
           disabled={saving}
         >
-          {saving ? 'Creating AI Calendar...' : 'Create My Calendar'}
+          {saving ? 'Creating Calendar Preview...' : 'Create Calendar Preview'}
         </Button>
       </div>
     </div>
