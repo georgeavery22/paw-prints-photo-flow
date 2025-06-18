@@ -3,6 +3,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { calendarPrompts } from './calendar-prompts.ts';
+import { multiDogCalendarPrompts } from './multi-dog-prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,7 +42,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     if (!generateAll) {
-      // Step 1: Analyze each uploaded image with OpenAI Vision using new prompt
+      // Step 1: Analyze each uploaded image with OpenAI Vision
       const imageDescriptions = [];
       
       for (const photoUrl of photoUrls) {
@@ -92,15 +93,19 @@ serve(async (req) => {
         console.error('Error saving dog descriptions:', updateError);
       }
       
-      // Step 2: Generate only the first image (January) using the first prompt
-      const scenePrompt = calendarPrompts[0]
+      // Determine which prompts to use based on number of dogs
+      const isMultipleDogs = imageDescriptions.length > 1;
+      const promptsToUse = isMultipleDogs ? multiDogCalendarPrompts : calendarPrompts;
+      
+      // Generate only the first image (January)
+      const scenePrompt = promptsToUse[0]
         .replace('[Artist]', artistStyle)
         .replace('[dog description]', imageDescriptions.join(' and '))
         .replace('[artist description]', artistDescriptions[artistStyle] || 'artistic style with expressive brushwork and rich colors');
       
       console.log('DALL-E prompt for January:', scenePrompt);
       
-      // Step 3: Generate first calendar image with DALL-E in landscape format
+      // Generate first calendar image with DALL-E
       const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
@@ -121,7 +126,7 @@ serve(async (req) => {
       
       console.log('Generated first calendar image:', generatedImageUrl);
       
-      // Step 4: Download and store the generated image in Supabase storage
+      // Download and store the generated image
       const imageResponse = await fetch(generatedImageUrl);
       const imageBlob = await imageResponse.blob();
       const imageBuffer = await imageBlob.arrayBuffer();
@@ -139,14 +144,13 @@ serve(async (req) => {
         throw uploadError;
       }
       
-      // Get the public URL for the stored image
       const { data: urlData } = supabase.storage
         .from('calendars')
         .getPublicUrl(fileName);
       
       const storedImageUrl = urlData.publicUrl;
       
-      // Step 5: Save calendar result to database
+      // Save calendar result to database
       const { error: calendarError } = await supabase
         .from('calendars')
         .insert({
@@ -160,7 +164,7 @@ serve(async (req) => {
         throw calendarError;
       }
       
-      // Step 6: Update generation status to awaiting_purchase
+      // Update generation status to awaiting_purchase
       const { error: updateGenError } = await supabase
         .from('calendar_generations')
         .update({
@@ -185,111 +189,48 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      // Generate all 12 images
-      console.log('Generating all 12 calendar images for generation:', generationId);
+      // Generate remaining 11 images one by one using background tasks
+      console.log('Starting background generation of remaining 11 months');
       
-      // Get the saved dog descriptions
-      const { data: generationData, error: fetchError } = await supabase
+      // Update status to generating
+      const { error: statusUpdateError } = await supabase
         .from('calendar_generations')
-        .select('dog_descriptions, artist_style')
-        .eq('id', generationId)
-        .single();
-      
-      if (fetchError || !generationData) {
-        throw new Error('Could not fetch generation data');
-      }
-      
-      const dogDescriptions = generationData.dog_descriptions;
-      const style = generationData.artist_style;
-      
-      // Generate remaining 11 images (February through December)
-      for (let month = 2; month <= 12; month++) {
-        const scenePrompt = calendarPrompts[month - 1]
-          .replace('[Artist]', style)
-          .replace('[dog description]', dogDescriptions.join(' and '))
-          .replace('[artist description]', artistDescriptions[style] || 'artistic style with expressive brushwork and rich colors');
-        
-        console.log(`DALL-E prompt for month ${month}:`, scenePrompt);
-        
-        const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'dall-e-3',
-            prompt: scenePrompt,
-            n: 1,
-            size: '1792x1024',
-            quality: 'hd'
-          }),
-        });
-
-        const dalleData = await dalleResponse.json();
-        const generatedImageUrl = dalleData.data[0].url;
-        
-        // Download and store the image
-        const imageResponse = await fetch(generatedImageUrl);
-        const imageBlob = await imageResponse.blob();
-        const imageBuffer = await imageBlob.arrayBuffer();
-        
-        const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 
-                           'july', 'august', 'september', 'october', 'november', 'december'];
-        const fileName = `calendar_${generationId}_${monthNames[month - 1]}.png`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('calendars')
-          .upload(fileName, imageBuffer, {
-            contentType: 'image/png',
-            upsert: true
-          });
-        
-        if (uploadError) {
-          console.error('Storage upload error for month', month, ':', uploadError);
-          continue; // Continue with other months even if one fails
-        }
-        
-        const { data: urlData } = supabase.storage
-          .from('calendars')
-          .getPublicUrl(fileName);
-        
-        // Save to calendars table
-        const { error: calendarError } = await supabase
-          .from('calendars')
-          .insert({
-            generation_id: generationId,
-            image_url: urlData.publicUrl,
-            month: month
-          });
-        
-        if (calendarError) {
-          console.error('Calendar insert error for month', month, ':', calendarError);
-        }
-        
-        console.log(`Completed month ${month}`);
-      }
-      
-      // Update generation status to completed
-      const { error: updateError } = await supabase
-        .from('calendar_generations')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        })
+        .update({ status: 'generating' })
         .eq('id', generationId);
       
-      if (updateError) {
-        console.error('Generation update error:', updateError);
+      if (statusUpdateError) {
+        console.error('Status update error:', statusUpdateError);
       }
       
-      console.log('All 12 calendar images completed successfully');
+      // Schedule generation of months 2-12 as background tasks
+      const generateMonthTasks = [];
+      for (let month = 2; month <= 12; month++) {
+        const task = supabase.functions.invoke('generate-calendar-month', {
+          body: { generationId, month }
+        });
+        generateMonthTasks.push(task);
+        
+        // Add a small delay between requests to avoid overwhelming the API
+        if (month < 12) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+      
+      // Start all background tasks but don't wait for them
+      EdgeRuntime.waitUntil(
+        Promise.all(generateMonthTasks).then(() => {
+          console.log('All background month generation tasks started');
+        }).catch(error => {
+          console.error('Error in background tasks:', error);
+        })
+      );
       
       return new Response(
         JSON.stringify({ 
           success: true, 
           generationId,
-          status: 'completed'
+          status: 'generating',
+          message: 'Full calendar generation started in background. You will receive an email when complete.'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

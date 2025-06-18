@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,7 +93,7 @@ const Shop = () => {
       
       if (error) throw error;
       
-      toast.success('Calendar purchase successful! Your full 12-month calendar is being generated.');
+      toast.success('Calendar purchase successful! Your full 12-month calendar is being generated in the background. You will receive an email when complete.');
       
       // Remove this generation from the awaiting list
       setAwaitingGenerations(prev => prev.filter(gen => gen.id !== generationId));
@@ -149,7 +148,7 @@ const Shop = () => {
       <div className="container mx-auto px-4 pt-32 pb-16">
         <h1 className="text-3xl font-medium mb-6 text-center">Shop Paw Prints</h1>
         <p className="text-center text-pawprints-darktext/70 max-w-2xl mx-auto mb-12">
-          Review your calendar previews and purchase the full 12-month calendar.
+          Review your calendar previews and purchase the full 12-month calendar. Note: Payment is not actually processed - this is a demo.
         </p>
         
         {loading ? (
@@ -183,61 +182,46 @@ const Shop = () => {
                 <CardContent className="space-y-6">
                   {generation.calendars.length > 0 && (
                     <div className="space-y-4">
-                      {/* Calendar Preview */}
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <img 
-                          src={generation.calendars[0].image_url} 
-                          alt="January Preview" 
-                          className="w-full h-48 object-cover rounded-lg mb-3"
-                        />
-                        <div className="grid grid-cols-7 gap-1 text-xs text-center">
-                          <div className="font-semibold py-1">Sun</div>
-                          <div className="font-semibold py-1">Mon</div>
-                          <div className="font-semibold py-1">Tue</div>
-                          <div className="font-semibold py-1">Wed</div>
-                          <div className="font-semibold py-1">Thu</div>
-                          <div className="font-semibold py-1">Fri</div>
-                          <div className="font-semibold py-1">Sat</div>
-                          {/* Sample January 2024 calendar grid */}
-                          <div className="py-1"></div>
-                          <div className="py-1 bg-white rounded">1</div>
-                          <div className="py-1 bg-white rounded">2</div>
-                          <div className="py-1 bg-white rounded">3</div>
-                          <div className="py-1 bg-white rounded">4</div>
-                          <div className="py-1 bg-white rounded">5</div>
-                          <div className="py-1 bg-white rounded">6</div>
-                          <div className="py-1 bg-white rounded">7</div>
-                          <div className="py-1 bg-white rounded">8</div>
-                          <div className="py-1 bg-white rounded">9</div>
-                          <div className="py-1 bg-white rounded">10</div>
-                          <div className="py-1 bg-white rounded">11</div>
-                          <div className="py-1 bg-white rounded">12</div>
-                          <div className="py-1 bg-white rounded">13</div>
-                          <div className="py-1 bg-white rounded">14</div>
-                          <div className="py-1 bg-white rounded">15</div>
-                          <div className="py-1 bg-white rounded">16</div>
-                          <div className="py-1 bg-white rounded">17</div>
-                          <div className="py-1 bg-white rounded">18</div>
-                          <div className="py-1 bg-white rounded">19</div>
-                          <div className="py-1 bg-white rounded">20</div>
-                          <div className="py-1 bg-white rounded">21</div>
-                          <div className="py-1 bg-white rounded">22</div>
-                          <div className="py-1 bg-white rounded">23</div>
-                          <div className="py-1 bg-white rounded">24</div>
-                          <div className="py-1 bg-white rounded">25</div>
-                          <div className="py-1 bg-white rounded">26</div>
-                          <div className="py-1 bg-white rounded">27</div>
-                          <div className="py-1 bg-white rounded">28</div>
-                          <div className="py-1 bg-white rounded">29</div>
-                          <div className="py-1 bg-white rounded">30</div>
-                          <div className="py-1 bg-white rounded">31</div>
+                      {/* Full Size Calendar Preview */}
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <div className="aspect-[16/9] w-full mb-4 overflow-hidden rounded-lg">
+                          <img 
+                            src={generation.calendars[0].image_url} 
+                            alt="January Preview" 
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                        <p className="text-center text-lg font-medium mt-2">January Preview</p>
+                        
+                        {/* Calendar Grid */}
+                        <div className="bg-white rounded-lg p-4">
+                          <h3 className="text-center text-xl font-semibold mb-4">January 2025</h3>
+                          <div className="grid grid-cols-7 gap-1 text-xs text-center">
+                            <div className="font-semibold py-2 text-gray-600">Sun</div>
+                            <div className="font-semibold py-2 text-gray-600">Mon</div>
+                            <div className="font-semibold py-2 text-gray-600">Tue</div>
+                            <div className="font-semibold py-2 text-gray-600">Wed</div>
+                            <div className="font-semibold py-2 text-gray-600">Thu</div>
+                            <div className="font-semibold py-2 text-gray-600">Fri</div>
+                            <div className="font-semibold py-2 text-gray-600">Sat</div>
+                            
+                            {/* Empty cells for days before month starts */}
+                            <div className="py-2"></div>
+                            <div className="py-2"></div>
+                            <div className="py-2"></div>
+                            
+                            {/* January 2025 starts on Wednesday */}
+                            {Array.from({ length: 31 }, (_, i) => (
+                              <div key={i + 1} className="py-2 hover:bg-gray-100 rounded">
+                                {i + 1}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                       
                       <div className="text-center">
                         <p className="text-sm text-pawprints-darktext/70 mb-4">
-                          This is a preview of your January calendar page. Purchase to get all 12 months!
+                          This is a preview of your January calendar page. Purchase to get all 12 months generated and delivered via email!
                         </p>
                         <Button 
                           onClick={() => handlePurchaseCalendar(generation.id)}
@@ -247,10 +231,10 @@ const Shop = () => {
                           {purchasing === generation.id ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Purchasing...
+                              Processing...
                             </>
                           ) : (
-                            'Purchase Full Calendar - $29.99'
+                            'Generate Full Calendar (Free Demo)'
                           )}
                         </Button>
                       </div>
