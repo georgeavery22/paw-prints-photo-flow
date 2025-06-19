@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import NavBar from '@/components/NavBar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Eye } from 'lucide-react';
+import { Loader2, Eye, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -14,13 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 
 type CalendarGeneration = {
   id: string;
@@ -48,6 +40,7 @@ const Shop = () => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [selectedCalendar, setSelectedCalendar] = useState<CalendarGeneration | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ url: string; month: string } | null>(null);
 
   const logApiCall = (operation: string, details: any) => {
     console.log(`[API CALL] ${operation}:`, details);
@@ -182,6 +175,10 @@ const Shop = () => {
     setSelectedCalendar(generation);
   };
 
+  const handleImageClick = (imageUrl: string, month: number) => {
+    setExpandedImage({ url: imageUrl, month: monthNames[month - 1] });
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen">
@@ -264,18 +261,38 @@ const Shop = () => {
                               </div>
                               
                               <div className="bg-white rounded-lg p-4">
-                                <div className="text-center mb-4">
-                                  <h3 className="text-lg font-semibold text-green-700">
-                                    🎉 Your calendar is ready!
-                                  </h3>
-                                  <p className="text-sm text-pawprints-darktext/70">
-                                    All 12 months completed ({generation.calendars.length}/12)
-                                  </p>
+                                <h3 className="text-center text-xl font-semibold mb-4">January 2025</h3>
+                                <div className="grid grid-cols-7 gap-1 text-xs text-center">
+                                  <div className="font-semibold py-2 text-gray-600">Sun</div>
+                                  <div className="font-semibold py-2 text-gray-600">Mon</div>
+                                  <div className="font-semibold py-2 text-gray-600">Tue</div>
+                                  <div className="font-semibold py-2 text-gray-600">Wed</div>
+                                  <div className="font-semibold py-2 text-gray-600">Thu</div>
+                                  <div className="font-semibold py-2 text-gray-600">Fri</div>
+                                  <div className="font-semibold py-2 text-gray-600">Sat</div>
+                                  
+                                  <div className="py-2"></div>
+                                  <div className="py-2"></div>
+                                  <div className="py-2"></div>
+                                  
+                                  {Array.from({ length: 31 }, (_, i) => (
+                                    <div key={i + 1} className="py-2 hover:bg-gray-100 rounded">
+                                      {i + 1}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             </div>
                             
                             <div className="text-center">
+                              <div className="mb-4">
+                                <h3 className="text-lg font-semibold text-green-700 mb-2">
+                                  🎉 Your calendar is ready!
+                                </h3>
+                                <p className="text-sm text-pawprints-darktext/70">
+                                  All 12 months completed ({generation.calendars.length}/12)
+                                </p>
+                              </div>
                               <Button 
                                 onClick={() => handleViewFullCalendar(generation)}
                                 className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
@@ -457,9 +474,9 @@ const Shop = () => {
         )}
       </div>
 
-      {/* Full Calendar Viewer Dialog */}
+      {/* Full Calendar Grid Viewer Dialog */}
       <Dialog open={!!selectedCalendar} onOpenChange={() => setSelectedCalendar(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-6xl max-h-[90vh] p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="text-2xl">
               {selectedCalendar?.title} - Full Calendar
@@ -468,50 +485,51 @@ const Shop = () => {
               Style: {selectedCalendar?.artist_style} • {selectedCalendar?.calendars.length} of 12 months
             </p>
           </DialogHeader>
-          <div className="px-6 pb-6">
+          <div className="px-6 pb-6 overflow-y-auto">
             {selectedCalendar && (
-              <Carousel className="w-full">
-                <CarouselContent>
-                  {selectedCalendar.calendars
-                    .sort((a, b) => a.month - b.month)
-                    .map((calendar) => (
-                      <CarouselItem key={calendar.month}>
-                        <div className="space-y-4">
-                          <div className="aspect-[16/10] w-full overflow-hidden rounded-lg bg-gray-100">
-                            <img 
-                              src={calendar.image_url} 
-                              alt={`${monthNames[calendar.month - 1]} Calendar`}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          <div className="bg-white rounded-lg p-4 border">
-                            <h3 className="text-center text-xl font-semibold mb-4">
-                              {monthNames[calendar.month - 1]} 2025
-                            </h3>
-                            <div className="grid grid-cols-7 gap-1 text-xs text-center">
-                              <div className="font-semibold py-2 text-gray-600">Sun</div>
-                              <div className="font-semibold py-2 text-gray-600">Mon</div>
-                              <div className="font-semibold py-2 text-gray-600">Tue</div>
-                              <div className="font-semibold py-2 text-gray-600">Wed</div>
-                              <div className="font-semibold py-2 text-gray-600">Thu</div>
-                              <div className="font-semibold py-2 text-gray-600">Fri</div>
-                              <div className="font-semibold py-2 text-gray-600">Sat</div>
-                              
-                              {/* Simple calendar grid - you can enhance this with actual dates */}
-                              {Array.from({ length: 35 }, (_, i) => (
-                                <div key={i} className="py-2 hover:bg-gray-100 rounded text-gray-700">
-                                  {i >= 0 && i < 31 ? i + 1 : ''}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </CarouselItem>
-                    ))}
-                </CarouselContent>
-                <CarouselPrevious />
-                <CarouselNext />
-              </Carousel>
+              <div className="grid grid-cols-4 gap-4">
+                {selectedCalendar.calendars
+                  .sort((a, b) => a.month - b.month)
+                  .map((calendar) => (
+                    <div key={calendar.month} className="space-y-2">
+                      <div 
+                        className="aspect-[16/10] w-full overflow-hidden rounded-lg bg-gray-100 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                        onClick={() => handleImageClick(calendar.image_url, calendar.month)}
+                      >
+                        <img 
+                          src={calendar.image_url} 
+                          alt={`${monthNames[calendar.month - 1]} Calendar`}
+                          className="w-full h-full object-contain hover:scale-105 transition-transform"
+                        />
+                      </div>
+                      <h3 className="text-center text-sm font-semibold">
+                        {monthNames[calendar.month - 1]} 2025
+                      </h3>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expanded Image Dialog */}
+      <Dialog open={!!expandedImage} onOpenChange={() => setExpandedImage(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="text-xl">
+              {expandedImage?.month} 2025
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            {expandedImage && (
+              <div className="aspect-[16/10] w-full overflow-hidden rounded-lg bg-gray-100">
+                <img 
+                  src={expandedImage.url} 
+                  alt={`${expandedImage.month} Calendar`}
+                  className="w-full h-full object-contain"
+                />
+              </div>
             )}
           </div>
         </DialogContent>
