@@ -36,11 +36,12 @@ serve(async (req) => {
   try {
     const { generationId, month } = await req.json();
     
-    console.log(`Generating calendar for month ${month}, generation ${generationId}`);
+    console.log(`🎨 [API CALL] DALL-E Generation - Month ${month} for generation ${generationId} at ${new Date().toISOString()}`);
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Get generation data
+    console.log(`📊 [API CALL] Supabase Fetch - Generation data for ${generationId}`);
     const { data: generationData, error: fetchError } = await supabase
       .from('calendar_generations')
       .select('dog_descriptions, artist_style, title, user_id')
@@ -66,9 +67,10 @@ serve(async (req) => {
       .replace('[dog description]', dogDescriptionsArray.join(' and '))
       .replace('[artist description]', artistDescriptions[artist_style] || 'artistic style with expressive brushwork and rich colors');
     
-    console.log(`DALL-E prompt for month ${month}:`, scenePrompt);
+    console.log(`📝 DALL-E prompt for month ${month}:`, scenePrompt);
     
     // Generate image with DALL-E
+    console.log(`🤖 [API CALL] DALL-E API - Generating image for month ${month}`);
     const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -86,11 +88,12 @@ serve(async (req) => {
 
     if (!dalleResponse.ok) {
       const errorText = await dalleResponse.text();
-      console.error('DALL-E API error:', errorText);
+      console.error('❌ DALL-E API error:', errorText);
       throw new Error(`DALL-E API error: ${dalleResponse.status} ${errorText}`);
     }
 
     const dalleData = await dalleResponse.json();
+    console.log(`✅ [API CALL] DALL-E Success - Generated image for month ${month}`);
     
     if (!dalleData.data || !dalleData.data[0] || !dalleData.data[0].url) {
       console.error('Invalid DALL-E response:', dalleData);
@@ -100,6 +103,7 @@ serve(async (req) => {
     const generatedImageUrl = dalleData.data[0].url;
     
     // Download and store the image
+    console.log(`💾 [API CALL] Image Download - Fetching generated image`);
     const imageResponse = await fetch(generatedImageUrl);
     if (!imageResponse.ok) {
       throw new Error(`Failed to download image: ${imageResponse.status}`);
@@ -112,6 +116,7 @@ serve(async (req) => {
                        'july', 'august', 'september', 'october', 'november', 'december'];
     const fileName = `calendar_${generationId}_${monthNames[month - 1]}.png`;
     
+    console.log(`☁️ [API CALL] Supabase Storage Upload - ${fileName}`);
     const { error: uploadError } = await supabase.storage
       .from('calendars')
       .upload(fileName, imageBuffer, {
@@ -129,6 +134,7 @@ serve(async (req) => {
       .getPublicUrl(fileName);
     
     // Save to calendars table
+    console.log(`📚 [API CALL] Supabase Insert - Calendar record for month ${month}`);
     const { error: calendarError } = await supabase
       .from('calendars')
       .insert({
@@ -142,11 +148,12 @@ serve(async (req) => {
       throw calendarError;
     }
     
-    console.log(`Completed month ${month} for generation ${generationId}`);
+    console.log(`✅ Completed month ${month} for generation ${generationId}`);
     
     // Check if this was the last month (12)
     if (month === 12) {
       // Update generation status to completed
+      console.log(`🏁 [API CALL] Supabase Update - Marking generation as completed`);
       const { error: updateError } = await supabase
         .from('calendar_generations')
         .update({
@@ -160,10 +167,12 @@ serve(async (req) => {
       }
       
       // Get user email for notification
+      console.log(`👤 [API CALL] Supabase Auth - Getting user data for ${user_id}`);
       const { data: userData } = await supabase.auth.admin.getUserById(user_id);
       
       if (userData?.user?.email) {
-        // Send completion notification email
+        // Send completion notification
+        console.log(`📧 [API CALL] Send Notification - Calendar completion email`);
         await supabase.functions.invoke('send-calendar-notification', {
           body: {
             generationId,
@@ -173,7 +182,7 @@ serve(async (req) => {
         });
       }
       
-      console.log('Generation completed and notification sent');
+      console.log('🎉 Generation completed and notification sent');
     }
     
     return new Response(
@@ -187,7 +196,7 @@ serve(async (req) => {
     );
     
   } catch (error) {
-    console.error(`Error generating calendar month:`, error);
+    console.error(`❌ Error generating calendar month:`, error);
     return new Response(
       JSON.stringify({ 
         error: 'Failed to generate calendar month',

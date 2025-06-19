@@ -6,8 +6,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Carousel,
   CarouselContent,
@@ -38,14 +44,22 @@ const Shop = () => {
   const { user, loading: authLoading } = useAuth();
   const [awaitingGenerations, setAwaitingGenerations] = useState<CalendarGeneration[]>([]);
   const [processingGenerations, setProcessingGenerations] = useState<CalendarGeneration[]>([]);
+  const [completedGenerations, setCompletedGenerations] = useState<CalendarGeneration[]>([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [selectedCalendar, setSelectedCalendar] = useState<CalendarGeneration | null>(null);
+
+  const logApiCall = (operation: string, details: any) => {
+    console.log(`[API CALL] ${operation}:`, details);
+  };
 
   useEffect(() => {
     const fetchGenerations = async () => {
       if (!user) return;
       
       try {
+        logApiCall('FETCH_GENERATIONS', { user_id: user.id, timestamp: new Date().toISOString() });
+        
         const { data, error } = await supabase
           .from('calendar_generations')
           .select(`
@@ -61,18 +75,23 @@ const Shop = () => {
             )
           `)
           .eq('user_id', user.id)
-          .in('status', ['awaiting_purchase', 'processing'])
+          .in('status', ['awaiting_purchase', 'processing', 'completed'])
           .order('created_at', { ascending: false });
         
         if (error) throw error;
         
+        logApiCall('FETCH_GENERATIONS_SUCCESS', { count: data?.length || 0 });
+        
         const awaiting = data?.filter(gen => gen.status === 'awaiting_purchase') || [];
         const processing = data?.filter(gen => gen.status === 'processing') || [];
+        const completed = data?.filter(gen => gen.status === 'completed') || [];
         
         setAwaitingGenerations(awaiting);
         setProcessingGenerations(processing);
+        setCompletedGenerations(completed);
       } catch (error) {
         console.error('Error fetching generations:', error);
+        logApiCall('FETCH_GENERATIONS_ERROR', error);
         toast.error('Failed to load calendar previews');
       } finally {
         setLoading(false);
@@ -92,7 +111,8 @@ const Shop = () => {
             schema: 'public',
             table: 'calendars'
           },
-          () => {
+          (payload) => {
+            logApiCall('REALTIME_CALENDAR_UPDATE', payload);
             fetchGenerations(); // Refresh when calendars are updated
           }
         )
@@ -103,7 +123,8 @@ const Shop = () => {
             schema: 'public',
             table: 'calendar_generations'
           },
-          () => {
+          (payload) => {
+            logApiCall('REALTIME_GENERATION_UPDATE', payload);
             fetchGenerations(); // Refresh when generation status changes
           }
         )
@@ -121,6 +142,8 @@ const Shop = () => {
     setPurchasing(generationId);
     
     try {
+      logApiCall('PURCHASE_CALENDAR', { generationId, timestamp: new Date().toISOString() });
+      
       const { data, error } = await supabase.functions
         .invoke('process-calendar', {
           body: {
@@ -130,6 +153,8 @@ const Shop = () => {
         });
       
       if (error) throw error;
+      
+      logApiCall('PURCHASE_CALENDAR_SUCCESS', data);
       
       toast.success('Calendar purchase successful! Your full 12-month calendar is being generated. You can track progress below.');
       
@@ -142,6 +167,7 @@ const Shop = () => {
       
     } catch (error) {
       console.error('Purchase error:', error);
+      logApiCall('PURCHASE_CALENDAR_ERROR', error);
       toast.error('Failed to purchase calendar. Please try again.');
     } finally {
       setPurchasing(null);
@@ -150,6 +176,10 @@ const Shop = () => {
 
   const getProgressPercentage = (calendars: CalendarGeneration['calendars']) => {
     return Math.round((calendars.length / 12) * 100);
+  };
+
+  const handleViewFullCalendar = (generation: CalendarGeneration) => {
+    setSelectedCalendar(generation);
   };
 
   if (authLoading) {
@@ -203,6 +233,66 @@ const Shop = () => {
           </div>
         ) : (
           <div className="space-y-12">
+            {/* Completed Calendars Section */}
+            {completedGenerations.length > 0 && (
+              <div>
+                <h2 className="text-2xl font-medium mb-6">Your Completed Calendars</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {completedGenerations.map((generation) => (
+                    <Card key={generation.id} className="bg-white border-green-200">
+                      <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          {generation.title}
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                            Complete
+                          </span>
+                        </CardTitle>
+                        <p className="text-sm text-pawprints-darktext/70">
+                          Style: {generation.artist_style} • Completed: {new Date(generation.created_at).toLocaleDateString()}
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {generation.calendars.length > 0 && (
+                          <div className="space-y-4">
+                            <div className="bg-gray-50 rounded-lg p-6">
+                              <div className="aspect-[16/9] w-full mb-4 overflow-hidden rounded-lg">
+                                <img 
+                                  src={generation.calendars.find(cal => cal.month === 1)?.image_url || generation.calendars[0].image_url} 
+                                  alt="Calendar Preview" 
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                              
+                              <div className="bg-white rounded-lg p-4">
+                                <div className="text-center mb-4">
+                                  <h3 className="text-lg font-semibold text-green-700">
+                                    🎉 Your calendar is ready!
+                                  </h3>
+                                  <p className="text-sm text-pawprints-darktext/70">
+                                    All 12 months completed ({generation.calendars.length}/12)
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="text-center">
+                              <Button 
+                                onClick={() => handleViewFullCalendar(generation)}
+                                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Full Calendar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Awaiting Purchase Section */}
             {awaitingGenerations.length > 0 && (
               <div>
@@ -348,7 +438,7 @@ const Shop = () => {
             )}
 
             {/* Empty State */}
-            {awaitingGenerations.length === 0 && processingGenerations.length === 0 && (
+            {awaitingGenerations.length === 0 && processingGenerations.length === 0 && completedGenerations.length === 0 && (
               <div className="bg-white rounded-2xl shadow-sm p-8 max-w-2xl mx-auto">
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-pawprints-beige/30 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -366,6 +456,66 @@ const Shop = () => {
           </div>
         )}
       </div>
+
+      {/* Full Calendar Viewer Dialog */}
+      <Dialog open={!!selectedCalendar} onOpenChange={() => setSelectedCalendar(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="text-2xl">
+              {selectedCalendar?.title} - Full Calendar
+            </DialogTitle>
+            <p className="text-sm text-pawprints-darktext/70">
+              Style: {selectedCalendar?.artist_style} • {selectedCalendar?.calendars.length} of 12 months
+            </p>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            {selectedCalendar && (
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {selectedCalendar.calendars
+                    .sort((a, b) => a.month - b.month)
+                    .map((calendar) => (
+                      <CarouselItem key={calendar.month}>
+                        <div className="space-y-4">
+                          <div className="aspect-[16/10] w-full overflow-hidden rounded-lg bg-gray-100">
+                            <img 
+                              src={calendar.image_url} 
+                              alt={`${monthNames[calendar.month - 1]} Calendar`}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <div className="bg-white rounded-lg p-4 border">
+                            <h3 className="text-center text-xl font-semibold mb-4">
+                              {monthNames[calendar.month - 1]} 2025
+                            </h3>
+                            <div className="grid grid-cols-7 gap-1 text-xs text-center">
+                              <div className="font-semibold py-2 text-gray-600">Sun</div>
+                              <div className="font-semibold py-2 text-gray-600">Mon</div>
+                              <div className="font-semibold py-2 text-gray-600">Tue</div>
+                              <div className="font-semibold py-2 text-gray-600">Wed</div>
+                              <div className="font-semibold py-2 text-gray-600">Thu</div>
+                              <div className="font-semibold py-2 text-gray-600">Fri</div>
+                              <div className="font-semibold py-2 text-gray-600">Sat</div>
+                              
+                              {/* Simple calendar grid - you can enhance this with actual dates */}
+                              {Array.from({ length: 35 }, (_, i) => (
+                                <div key={i} className="py-2 hover:bg-gray-100 rounded text-gray-700">
+                                  {i >= 0 && i < 31 ? i + 1 : ''}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
