@@ -23,19 +23,19 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Update status to processing
-    console.log(`📊 [API CALL] Supabase Update - Setting status to processing for ${generationId}`);
-    const { error: updateError } = await supabase
-      .from('calendar_generations')
-      .update({ status: 'processing' })
-      .eq('id', generationId);
-    
-    if (updateError) {
-      console.error('Error updating status:', updateError);
-      throw updateError;
-    }
-    
     if (generateAll) {
+      // Only update status to processing for full calendar generation
+      console.log(`📊 [API CALL] Supabase Update - Setting status to processing for ${generationId}`);
+      const { error: updateError } = await supabase
+        .from('calendar_generations')
+        .update({ status: 'processing' })
+        .eq('id', generationId);
+      
+      if (updateError) {
+        console.error('Error updating status:', updateError);
+        throw updateError;
+      }
+      
       // Generate all 12 months with rate limiting (2 per minute = 30 seconds between each)
       console.log('🎨 Starting rate-limited generation of all 12 months (2 per minute)');
       
@@ -81,7 +81,7 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      // Generate just January for preview
+      // Generate just January for preview - DON'T change status to processing
       console.log(`🎯 [API CALL] Generate Preview - Month 1 for generation ${generationId}`);
       const { data, error } = await supabase.functions
         .invoke('generate-calendar-month', {
