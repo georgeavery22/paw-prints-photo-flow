@@ -2,8 +2,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { calendarPrompts } from './calendar-prompts.ts';
-import { multiDogCalendarPrompts } from './multi-dog-prompts.ts';
+import { calendarPrompts } from '../process-calendar/calendar-prompts.ts';
+import { multiDogCalendarPrompts } from '../process-calendar/multi-dog-prompts.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,11 +61,12 @@ serve(async (req) => {
     const isMultipleDogs = dogDescriptionsArray.length > 1;
     const promptsToUse = isMultipleDogs ? multiDogCalendarPrompts : calendarPrompts;
     
-    // Create the scene prompt
+    // Create the scene prompt with proper placeholder replacement
     const scenePrompt = promptsToUse[month - 1]
-      .replace('[Artist]', artist_style)
-      .replace('[dog description]', dogDescriptionsArray.join(' and '))
-      .replace('[artist description]', artistDescriptions[artist_style] || 'artistic style with expressive brushwork and rich colors');
+      .replace(/\[Artist\]/g, artist_style)
+      .replace(/\[artist style\]/g, artist_style)
+      .replace(/\[dog description\]/g, dogDescriptionsArray.join(' and '))
+      .replace(/\[artist description\]/g, artistDescriptions[artist_style] || 'artistic style with expressive brushwork and rich colors');
     
     console.log(`📝 DALL-E prompt for month ${month}:`, scenePrompt);
     

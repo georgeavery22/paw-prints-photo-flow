@@ -37,7 +37,7 @@ serve(async (req) => {
   try {
     const { generationId, photoUrls, artistStyle, generateAll = false } = await req.json();
     
-    console.log('Processing calendar generation:', generationId, 'generateAll:', generateAll);
+    console.log('🎨 [API CALL] Process Calendar - Starting generation', generationId, 'generateAll:', generateAll);
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
@@ -46,7 +46,7 @@ serve(async (req) => {
       const imageDescriptions = [];
       
       for (const photoUrl of photoUrls) {
-        console.log('Analyzing image:', photoUrl);
+        console.log('🔍 [API CALL] OpenAI Vision - Analyzing image:', photoUrl);
         
         const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -78,10 +78,11 @@ serve(async (req) => {
         const visionData = await visionResponse.json();
         const description = visionData.choices[0].message.content;
         imageDescriptions.push(description);
-        console.log('Generated description:', description);
+        console.log('✅ Generated description:', description);
       }
       
       // Save dog descriptions for later use
+      console.log('💾 [API CALL] Supabase Update - Saving dog descriptions');
       const { error: updateError } = await supabase
         .from('calendar_generations')
         .update({
@@ -97,15 +98,17 @@ serve(async (req) => {
       const isMultipleDogs = imageDescriptions.length > 1;
       const promptsToUse = isMultipleDogs ? multiDogCalendarPrompts : calendarPrompts;
       
-      // Generate only the first image (January)
+      // Generate only the first image (January) with proper placeholder replacement
       const scenePrompt = promptsToUse[0]
-        .replace('[Artist]', artistStyle)
-        .replace('[dog description]', imageDescriptions.join(' and '))
-        .replace('[artist description]', artistDescriptions[artistStyle] || 'artistic style with expressive brushwork and rich colors');
+        .replace(/\[Artist\]/g, artistStyle)
+        .replace(/\[artist style\]/g, artistStyle)
+        .replace(/\[dog description\]/g, imageDescriptions.join(' and '))
+        .replace(/\[artist description\]/g, artistDescriptions[artistStyle] || 'artistic style with expressive brushwork and rich colors');
       
-      console.log('DALL-E prompt for January:', scenePrompt);
+      console.log('📝 DALL-E prompt for January:', scenePrompt);
       
       // Generate first calendar image with DALL-E
+      console.log('🎨 [API CALL] DALL-E 3 - Generating January preview');
       const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
@@ -124,14 +127,16 @@ serve(async (req) => {
       const dalleData = await dalleResponse.json();
       const generatedImageUrl = dalleData.data[0].url;
       
-      console.log('Generated first calendar image:', generatedImageUrl);
+      console.log('✅ [API CALL] DALL-E 3 Success - Generated first calendar image:', generatedImageUrl);
       
       // Download and store the generated image
+      console.log('💾 [API CALL] Image Download - Fetching generated image');
       const imageResponse = await fetch(generatedImageUrl);
       const imageBlob = await imageResponse.blob();
       const imageBuffer = await imageBlob.arrayBuffer();
       
       const fileName = `calendar_${generationId}_january.png`;
+      console.log('☁️ [API CALL] Supabase Storage Upload -', fileName);
       const { error: uploadError } = await supabase.storage
         .from('calendars')
         .upload(fileName, imageBuffer, {
@@ -151,6 +156,7 @@ serve(async (req) => {
       const storedImageUrl = urlData.publicUrl;
       
       // Save calendar result to database
+      console.log('📚 [API CALL] Supabase Insert - Calendar record');
       const { error: calendarError } = await supabase
         .from('calendars')
         .insert({
@@ -165,6 +171,7 @@ serve(async (req) => {
       }
       
       // Update generation status to awaiting_purchase
+      console.log('📊 [API CALL] Supabase Update - Generation status to awaiting_purchase');
       const { error: updateGenError } = await supabase
         .from('calendar_generations')
         .update({
@@ -177,7 +184,7 @@ serve(async (req) => {
         throw updateGenError;
       }
       
-      console.log('First calendar image completed successfully');
+      console.log('✅ First calendar image completed successfully');
       
       return new Response(
         JSON.stringify({ 
@@ -190,9 +197,10 @@ serve(async (req) => {
       );
     } else {
       // Generate remaining 11 images one by one using background tasks
-      console.log('Starting background generation of remaining 11 months');
+      console.log('🔄 [API CALL] Background Tasks - Starting generation of remaining 11 months');
       
       // Update status to generating
+      console.log('📊 [API CALL] Supabase Update - Generation status to generating');
       const { error: statusUpdateError } = await supabase
         .from('calendar_generations')
         .update({ status: 'generating' })
@@ -219,9 +227,9 @@ serve(async (req) => {
       // Start all background tasks but don't wait for them
       EdgeRuntime.waitUntil(
         Promise.all(generateMonthTasks).then(() => {
-          console.log('All background month generation tasks started');
+          console.log('✅ All background month generation tasks started');
         }).catch(error => {
-          console.error('Error in background tasks:', error);
+          console.error('❌ Error in background tasks:', error);
         })
       );
       
@@ -237,7 +245,7 @@ serve(async (req) => {
     }
     
   } catch (error) {
-    console.error('Error in process-calendar function:', error);
+    console.error('❌ Error in process-calendar function:', error);
     return new Response(
       JSON.stringify({ 
         error: 'Failed to process calendar generation',
