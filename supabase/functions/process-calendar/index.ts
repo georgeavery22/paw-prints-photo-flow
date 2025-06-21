@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
@@ -138,46 +137,44 @@ serve(async (req) => {
         throw updateError;
       }
       
-      // Generate all 12 months with rate limiting (2 per minute = 30 seconds between each)
-      console.log('🎨 Starting rate-limited generation of all 12 months (2 per minute)');
+      // Generate all 12 months sequentially without rate limiting delay
+      console.log('🎨 Starting generation of all 12 months');
       
-      // Use EdgeRuntime.waitUntil to handle background task
-      EdgeRuntime.waitUntil(
-        (async () => {
-          try {
-            for (let month = 1; month <= 12; month++) {
-              console.log(`🎯 [API CALL] Generate Month ${month} - Starting generation at ${new Date().toISOString()}`);
-              
-              const { data, error } = await supabase.functions
-                .invoke('generate-calendar-month', {
-                  body: { generationId, month }
-                });
-              
-              if (error) {
-                console.error(`❌ Error generating month ${month}:`, error);
-                // Continue with next months even if one fails
-              } else {
-                console.log(`✅ Month ${month} generation initiated successfully`);
-              }
-              
-              // Rate limiting: Wait 30 seconds between requests (2 per minute)
-              if (month < 12) {
-                console.log(`⏳ Rate limiting: Waiting 30 seconds before generating month ${month + 1}`);
-                await new Promise(resolve => setTimeout(resolve, 30000));
-              }
+      // Generate all months immediately without waiting
+      const monthPromises = [];
+      for (let month = 1; month <= 12; month++) {
+        console.log(`🎯 [API CALL] Generate Month ${month} - Starting generation at ${new Date().toISOString()}`);
+        
+        const monthPromise = supabase.functions
+          .invoke('generate-calendar-month', {
+            body: { generationId, month }
+          })
+          .then(({ data, error }) => {
+            if (error) {
+              console.error(`❌ Error generating month ${month}:`, error);
+            } else {
+              console.log(`✅ Month ${month} generation completed successfully`);
             }
-            console.log('🎉 All 12 month generations have been initiated with rate limiting');
-          } catch (error) {
-            console.error('❌ Error in background generation process:', error);
-          }
-        })()
-      );
+            return { month, success: !error, error };
+          });
+        
+        monthPromises.push(monthPromise);
+      }
+      
+      // Start all generations concurrently but return immediately
+      Promise.all(monthPromises).then((results) => {
+        const successful = results.filter(r => r.success).length;
+        const failed = results.filter(r => !r.success).length;
+        console.log(`🎉 Generation batch completed: ${successful} successful, ${failed} failed`);
+      }).catch(error => {
+        console.error('❌ Error in batch generation:', error);
+      });
       
       // Return immediate response
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Calendar generation started with rate limiting (2 per minute)',
+          message: 'Calendar generation started for all 12 months',
           generationId 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
