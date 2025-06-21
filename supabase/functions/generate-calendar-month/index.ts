@@ -60,14 +60,20 @@ serve(async (req) => {
     const isMultipleDogs = dogDescriptionsArray.length > 1;
     const promptsToUse = isMultipleDogs ? multiDogCalendarPrompts : calendarPrompts;
     
-    // Create the scene prompt with proper placeholder replacement
-    const scenePrompt = promptsToUse[month - 1]
+    // Get the artist description for consistent style application
+    const artistDescription = artistDescriptions[artist_style] || 'artistic style with expressive brushwork and rich colors';
+    
+    // Create the scene prompt with proper and consistent placeholder replacement
+    let scenePrompt = promptsToUse[month - 1];
+    
+    // Replace all placeholders systematically to ensure consistency
+    scenePrompt = scenePrompt
       .replace(/\[Artist\]/g, artist_style)
-      .replace(/\[artist style\]/g, artist_style)
+      .replace(/\[artist style\]/g, artist_style)  
+      .replace(/\[Artist style\]/g, artist_style)
       .replace(/\[dog description\]/g, dogDescriptionsArray.join(' and '))
       .replace(/\[Dog description\]/g, dogDescriptionsArray.join(' and '))
-      .replace(/\[artist description\]/g, artistDescriptions[artist_style] || 'artistic style with expressive brushwork and rich colors')
-      .replace(/\[Artist style\]/g, artist_style);
+      .replace(/\[artist description\]/g, artistDescription);
     
     console.log(`📝 DALL-E prompt for month ${month}:`, scenePrompt);
     

@@ -84,14 +84,14 @@ const PhotoUpload = () => {
     try {
       setSaving(true);
       
-      // 1. Create a new calendar generation
+      // 1. Create a new calendar generation - START with awaiting_purchase status
       const { data: generationData, error: generationError } = await supabase
         .from('calendar_generations')
         .insert({
           user_id: user.id,
           title: `${artistStyle} Dog Calendar`,
           artist_style: artistStyle,
-          status: 'processing'
+          status: 'awaiting_purchase' // Start as awaiting_purchase for preview
         })
         .select('id')
         .single();
