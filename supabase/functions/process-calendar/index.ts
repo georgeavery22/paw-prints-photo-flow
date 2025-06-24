@@ -138,6 +138,15 @@ serve(async (req) => {
         throw updateError;
       }
       
+      // Check if January already exists (from preview generation)
+      console.log(`🔍 [API CALL] Supabase Check - Looking for existing January image`);
+      const { data: existingJanuary } = await supabase
+        .from('calendars')
+        .select('id')
+        .eq('generation_id', generationId)
+        .eq('month', 1)
+        .single();
+      
       // Start background task for sequential generation
       console.log('🎨 Starting background task for sequential generation of all 12 months');
       
@@ -146,7 +155,10 @@ serve(async (req) => {
         let successCount = 0;
         let failureCount = 0;
         
-        for (let month = 1; month <= 12; month++) {
+        // Start from month 1 if no January exists, otherwise start from month 2
+        const startMonth = existingJanuary ? 2 : 1;
+        
+        for (let month = startMonth; month <= 12; month++) {
           try {
             console.log(`🎯 [BACKGROUND] Generate Month ${month} - Starting generation at ${new Date().toISOString()}`);
             
@@ -202,6 +214,11 @@ serve(async (req) => {
           }
         }
         
+        // If January already existed, count it as successful 
+        if (existingJanuary) {
+          successCount++;
+        }
+        
         console.log(`🎉 [BACKGROUND] Generation completed: ${successCount} successful, ${failureCount} failed`);
         
         // Update final status based on results
@@ -254,11 +271,22 @@ serve(async (req) => {
         console.log(`🏁 [BACKGROUND] Background generation process completed for ${generationId}`);
       };
       
-      // Use EdgeRuntime.waitUntil to run the background task
-      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-        EdgeRuntime.waitUntil(backgroundGeneration());
+      // Use proper background task handling
+      if (typeof globalThis !== 'undefined' && globalThis.addEventListener) {
+        // For Supabase Edge Runtime
+        const abortController = new AbortController();
+        
+        globalThis.addEventListener('beforeunload', () => {
+          console.log('🛑 [BACKGROUND] Function shutting down, aborting background task');
+          abortController.abort();
+        });
+        
+        // Run background task with proper error handling
+        backgroundGeneration().catch(error => {
+          console.error('❌ Background generation failed:', error);
+        });
       } else {
-        // Fallback for environments without EdgeRuntime
+        // Fallback for other environments
         backgroundGeneration().catch(error => {
           console.error('❌ Background generation failed:', error);
         });
@@ -269,7 +297,8 @@ serve(async (req) => {
           success: true, 
           message: `Calendar generation started in background for generation ${generationId}`,
           generationId,
-          status: 'processing'
+          status: 'processing',
+          startMonth: existingJanuary ? 2 : 1
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
