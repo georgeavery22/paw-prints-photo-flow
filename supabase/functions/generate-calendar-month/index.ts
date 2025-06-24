@@ -100,7 +100,7 @@ const artistDescriptions = {
   'Abstract': 'non-representational forms and bold color combinations, emphasizing emotion and movement over realistic depiction',
   'Surrealist': 'dreamlike quality with unexpected elements and mysterious atmosphere, blending reality with imagination',
   'Cartoon': 'stylized, exaggerated features with bright, cheerful colors and a playful, animated quality',
-  'Van Gogh': 'Van Gogh's vivid colors, defined and expressive brushstrokes, and swirling textures'
+  'Van Gogh': 'Van Gogh\'s vivid colors, defined and expressive brushstrokes, and swirling textures'
 };
 
 serve(async (req) => {
