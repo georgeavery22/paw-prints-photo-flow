@@ -147,7 +147,7 @@ serve(async (req) => {
         .eq('month', 1)
         .single();
       
-      // Start background task for sequential generation
+      // Start background task for sequential generation with proper delay management
       console.log('🎨 Starting background task for sequential generation of all 12 months');
       
       const backgroundGeneration = async () => {
@@ -196,21 +196,18 @@ serve(async (req) => {
               results.push({ month, success: true });
             }
             
-            // Add 20 second delay between generations (except after last month)
-            if (month < 12) {
-              console.log(`⏱️ [BACKGROUND] Waiting 20 seconds before next generation...`);
-              await new Promise(resolve => setTimeout(resolve, 20000));
-            }
+            // CRITICAL: Add 15 second delay after EVERY generation (including retries)
+            console.log(`⏱️ [BACKGROUND] Waiting 15 seconds before next generation...`);
+            await new Promise(resolve => setTimeout(resolve, 15000));
             
           } catch (error) {
             console.error(`❌ Unexpected error for month ${month}:`, error);
             failureCount++;
             results.push({ month, success: false, error: error.message });
             
-            // Continue with next month after a short delay
-            if (month < 12) {
-              await new Promise(resolve => setTimeout(resolve, 10000));
-            }
+            // Add delay even after errors
+            console.log(`⏱️ [BACKGROUND] Waiting 15 seconds after error before continuing...`);
+            await new Promise(resolve => setTimeout(resolve, 15000));
           }
         }
         
@@ -271,26 +268,10 @@ serve(async (req) => {
         console.log(`🏁 [BACKGROUND] Background generation process completed for ${generationId}`);
       };
       
-      // Use proper background task handling
-      if (typeof globalThis !== 'undefined' && globalThis.addEventListener) {
-        // For Supabase Edge Runtime
-        const abortController = new AbortController();
-        
-        globalThis.addEventListener('beforeunload', () => {
-          console.log('🛑 [BACKGROUND] Function shutting down, aborting background task');
-          abortController.abort();
-        });
-        
-        // Run background task with proper error handling
-        backgroundGeneration().catch(error => {
-          console.error('❌ Background generation failed:', error);
-        });
-      } else {
-        // Fallback for other environments
-        backgroundGeneration().catch(error => {
-          console.error('❌ Background generation failed:', error);
-        });
-      }
+      // Start background task without blocking the response
+      backgroundGeneration().catch(error => {
+        console.error('❌ Background generation failed:', error);
+      });
       
       return new Response(
         JSON.stringify({ 

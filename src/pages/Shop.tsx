@@ -340,83 +340,6 @@ const Shop = () => {
               </div>
             )}
 
-            {/* Awaiting Purchase Section */}
-            {awaitingGenerations.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-medium mb-6">Available for Purchase</h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {awaitingGenerations.map((generation) => (
-                    <Card key={generation.id} className="bg-white">
-                      <CardHeader>
-                        <CardTitle className="text-xl">{generation.title}</CardTitle>
-                        <p className="text-sm text-pawprints-darktext/70">
-                          Style: {generation.artist_style} • Created: {new Date(generation.created_at).toLocaleDateString()}
-                        </p>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        {generation.calendars.length > 0 && (
-                          <div className="space-y-4">
-                            <div className="bg-gray-50 rounded-lg p-6">
-                              <div className="aspect-[16/9] w-full mb-4 overflow-hidden rounded-lg">
-                                <img 
-                                  src={generation.calendars[0].image_url} 
-                                  alt="January Preview" 
-                                  className="w-full h-full object-contain"
-                                />
-                              </div>
-                              
-                              <div className="bg-white rounded-lg p-4">
-                                <h3 className="text-center text-xl font-semibold mb-4">January 2025</h3>
-                                <div className="grid grid-cols-7 gap-1 text-xs text-center">
-                                  <div className="font-semibold py-2 text-gray-600">Sun</div>
-                                  <div className="font-semibold py-2 text-gray-600">Mon</div>
-                                  <div className="font-semibold py-2 text-gray-600">Tue</div>
-                                  <div className="font-semibold py-2 text-gray-600">Wed</div>
-                                  <div className="font-semibold py-2 text-gray-600">Thu</div>
-                                  <div className="font-semibold py-2 text-gray-600">Fri</div>
-                                  <div className="font-semibold py-2 text-gray-600">Sat</div>
-                                  
-                                  <div className="py-2"></div>
-                                  <div className="py-2"></div>
-                                  <div className="py-2"></div>
-                                  
-                                  {Array.from({ length: 31 }, (_, i) => (
-                                    <div key={i + 1} className="py-2 hover:bg-gray-100 rounded">
-                                      {i + 1}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="text-center">
-                              <p className="text-sm text-pawprints-darktext/70 mb-4">
-                                This is a preview of your January calendar page. Purchase to get all 12 months generated and delivered via email!
-                              </p>
-                              <Button 
-                                onClick={() => handlePurchaseCalendar(generation.id)}
-                                disabled={purchasing === generation.id}
-                                className="bg-pawprints-terracotta hover:bg-pawprints-terracotta/90 text-white px-8 py-3 text-lg"
-                              >
-                                {purchasing === generation.id ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Processing...
-                                  </>
-                                ) : (
-                                  'Generate Full Calendar (Free Demo)'
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Processing Section */}
             {processingGenerations.length > 0 && (
               <div>
@@ -495,7 +418,7 @@ const Shop = () => {
               </div>
             )}
 
-            {/* Awaiting Purchase Section */}
+            {/* Available for Purchase Section - ONLY ONE INSTANCE */}
             {awaitingGenerations.length > 0 && (
               <div>
                 <h2 className="text-2xl font-medium mb-6">Available for Purchase</h2>
