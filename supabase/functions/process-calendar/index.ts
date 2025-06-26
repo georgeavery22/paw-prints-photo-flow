@@ -147,139 +147,133 @@ serve(async (req) => {
         .eq('month', 1)
         .single();
       
-      // Start background task for sequential generation with proper delay management
-      console.log('🎨 Starting background task for sequential generation of all 12 months');
+      // Start from month 1 if no January exists, otherwise start from month 2
+      const startMonth = existingJanuary ? 2 : 1;
       
-      const backgroundGeneration = async () => {
-        const results = [];
-        let successCount = 0;
-        let failureCount = 0;
-        
-        // Start from month 1 if no January exists, otherwise start from month 2
-        const startMonth = existingJanuary ? 2 : 1;
-        
-        for (let month = startMonth; month <= 12; month++) {
-          try {
-            console.log(`🎯 [BACKGROUND] Generate Month ${month} - Starting generation at ${new Date().toISOString()}`);
+      console.log(`🎨 Starting sequential generation of months ${startMonth}-12 for ${generationId}`);
+      
+      // Generate each month sequentially with proper delays
+      const results = [];
+      let successCount = existingJanuary ? 1 : 0; // Count January if it exists
+      let failureCount = 0;
+      
+      for (let month = startMonth; month <= 12; month++) {
+        try {
+          console.log(`🎯 [SEQUENTIAL] Generate Month ${month} - Starting at ${new Date().toISOString()}`);
+          
+          const { data, error } = await supabase.functions
+            .invoke('generate-calendar-month', {
+              body: { generationId, month }
+            });
+          
+          if (error) {
+            console.error(`❌ Error generating month ${month}:`, error);
+            failureCount++;
+            results.push({ month, success: false, error: error.message });
             
-            const { data, error } = await supabase.functions
+            // Try once more after 30 seconds
+            console.log(`🔄 Retrying month ${month} after 30 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 30000));
+            
+            const { data: retryData, error: retryError } = await supabase.functions
               .invoke('generate-calendar-month', {
                 body: { generationId, month }
               });
             
-            if (error) {
-              console.error(`❌ Error generating month ${month}:`, error);
-              failureCount++;
-              results.push({ month, success: false, error: error.message });
-              
-              // Try once more after a 30 second delay
-              console.log(`🔄 Retrying month ${month} after 30 seconds...`);
-              await new Promise(resolve => setTimeout(resolve, 30000));
-              
-              const { data: retryData, error: retryError } = await supabase.functions
-                .invoke('generate-calendar-month', {
-                  body: { generationId, month }
-                });
-              
-              if (retryError) {
-                console.error(`❌ Retry failed for month ${month}:`, retryError);
-                results[results.length - 1] = { month, success: false, error: retryError.message, retried: true };
-              } else {
-                console.log(`✅ Retry successful for month ${month}`);
-                successCount++;
-                failureCount--; // Adjust count since retry succeeded
-                results[results.length - 1] = { month, success: true, retried: true };
-              }
+            if (retryError) {
+              console.error(`❌ Retry failed for month ${month}:`, retryError);
+              results[results.length - 1] = { month, success: false, error: retryError.message, retried: true };
             } else {
-              console.log(`✅ Month ${month} generation completed successfully`);
+              console.log(`✅ Retry successful for month ${month}`);
               successCount++;
-              results.push({ month, success: true });
+              failureCount--; // Adjust count since retry succeeded
+              results[results.length - 1] = { month, success: true, retried: true };
             }
-            
-            // CRITICAL: Add 15 second delay after EVERY generation (including retries)
-            console.log(`⏱️ [BACKGROUND] Waiting 15 seconds before next generation...`);
-            await new Promise(resolve => setTimeout(resolve, 15000));
-            
-          } catch (error) {
-            console.error(`❌ Unexpected error for month ${month}:`, error);
-            failureCount++;
-            results.push({ month, success: false, error: error.message });
-            
-            // Add delay even after errors
-            console.log(`⏱️ [BACKGROUND] Waiting 15 seconds after error before continuing...`);
-            await new Promise(resolve => setTimeout(resolve, 15000));
+          } else {
+            console.log(`✅ Month ${month} generation completed successfully`);
+            successCount++;
+            results.push({ month, success: true });
+          }
+          
+          // CRITICAL: Always wait 20 seconds after each generation attempt
+          if (month < 12) { // Don't wait after the last month
+            console.log(`⏱️ [SEQUENTIAL] Waiting 20 seconds before next generation...`);
+            await new Promise(resolve => setTimeout(resolve, 20000));
+          }
+          
+        } catch (error) {
+          console.error(`❌ Unexpected error for month ${month}:`, error);
+          failureCount++;
+          results.push({ month, success: false, error: error.message });
+          
+          // Still wait 20 seconds even after errors to maintain rate limiting
+          if (month < 12) {
+            console.log(`⏱️ [SEQUENTIAL] Waiting 20 seconds after error before continuing...`);
+            await new Promise(resolve => setTimeout(resolve, 20000));
           }
         }
-        
-        // If January already existed, count it as successful 
-        if (existingJanuary) {
-          successCount++;
-        }
-        
-        console.log(`🎉 [BACKGROUND] Generation completed: ${successCount} successful, ${failureCount} failed`);
-        
-        // Update final status based on results
-        const finalStatus = successCount === 12 ? 'completed' : failureCount === 12 ? 'failed' : 'partial';
-        const updateData: any = { status: finalStatus };
-        
-        if (finalStatus === 'completed') {
-          updateData.completed_at = new Date().toISOString();
-        }
-        
-        await supabase
-          .from('calendar_generations')
-          .update(updateData)
-          .eq('id', generationId);
-        
-        // If we have some successes, send notification
-        if (successCount > 0) {
-          try {
-            // Get user email for notification
-            console.log(`👤 [BACKGROUND] Getting user data for ${generationData.user_id}`);
-            const { data: userData } = await supabase.auth.admin.getUserById(generationData.user_id);
-            
-            if (userData?.user?.email) {
-              // Send completion notification
-              console.log(`📧 [BACKGROUND] Sending calendar ${finalStatus} email`);
-              const notificationResult = await supabase.functions.invoke('send-calendar-notification', {
-                body: {
-                  generationId,
-                  userEmail: userData.user.email,
-                  calendarTitle: `${generationData.artist_style} Dog Calendar`,
-                  status: finalStatus,
-                  successCount,
-                  totalCount: 12
-                }
-              });
-              
-              if (notificationResult.error) {
-                console.error('❌ Notification failed:', notificationResult.error);
-              } else {
-                console.log('✅ Notification sent successfully');
-              }
-            } else {
-              console.log('⚠️ No user email found for notification');
-            }
-          } catch (notificationError) {
-            console.error('❌ Error in notification process:', notificationError);
-          }
-        }
-        
-        console.log(`🏁 [BACKGROUND] Background generation process completed for ${generationId}`);
-      };
+      }
       
-      // Start background task without blocking the response
-      backgroundGeneration().catch(error => {
-        console.error('❌ Background generation failed:', error);
-      });
+      console.log(`🎉 [SEQUENTIAL] All months processed: ${successCount} successful, ${failureCount} failed`);
+      
+      // Update final status based on results
+      const finalStatus = successCount === 12 ? 'completed' : failureCount === 12 ? 'failed' : 'partial';
+      const updateData: any = { status: finalStatus };
+      
+      if (finalStatus === 'completed') {
+        updateData.completed_at = new Date().toISOString();
+      }
+      
+      await supabase
+        .from('calendar_generations')
+        .update(updateData)
+        .eq('id', generationId);
+      
+      // Send notification if we have some successes
+      if (successCount > 0) {
+        try {
+          // Get user email for notification
+          console.log(`👤 [SEQUENTIAL] Getting user data for ${generationData.user_id}`);
+          const { data: userData } = await supabase.auth.admin.getUserById(generationData.user_id);
+          
+          if (userData?.user?.email) {
+            // Send completion notification
+            console.log(`📧 [SEQUENTIAL] Sending calendar ${finalStatus} email`);
+            const notificationResult = await supabase.functions.invoke('send-calendar-notification', {
+              body: {
+                generationId,
+                userEmail: userData.user.email,
+                calendarTitle: `${generationData.artist_style} Dog Calendar`,
+                status: finalStatus,
+                successCount,
+                totalCount: 12
+              }
+            });
+            
+            if (notificationResult.error) {
+              console.error('❌ Notification failed:', notificationResult.error);
+            } else {
+              console.log('✅ Notification sent successfully');
+            }
+          } else {
+            console.log('⚠️ No user email found for notification');
+          }
+        } catch (notificationError) {
+          console.error('❌ Error in notification process:', notificationError);
+        }
+      }
+      
+      console.log(`🏁 [SEQUENTIAL] Sequential generation process completed for ${generationId}`);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Calendar generation started in background for generation ${generationId}`,
+          message: `Calendar generation completed for generation ${generationId}`,
           generationId,
-          status: 'processing',
-          startMonth: existingJanuary ? 2 : 1
+          status: finalStatus,
+          results: results,
+          successCount,
+          failureCount
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
